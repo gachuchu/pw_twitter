@@ -170,6 +170,12 @@ if(!class_exists('PW_Twitter')){
                     'title'             =>      'カスタム追加2(%ADD2&)',
                     'description'       =>      ' <span style="font-size:10px;">投稿時ツイートに引き渡せるカスタム入力フィールド2</span>',
                     ),
+                'pwtw_custom_img' => array(
+                    'name'              =>      'pwtw_custom_img',
+                    'default'           =>      '1',
+                    'title'             =>      'エントリ内の画像を含める',
+                    'description'       =>      ' ',
+                    ),
                 );
 
             // 各種処理
@@ -207,6 +213,7 @@ if(!class_exists('PW_Twitter')){
             if($do_tweet){
                 $add1 = (isset($_POST['pwtw_custom_add1_value']) ? $_POST['pwtw_custom_add1_value'] : '');
                 $add2 = (isset($_POST['pwtw_custom_add2_value']) ? $_POST['pwtw_custom_add2_value'] : '');
+                $img  = (isset($_POST['pwtw_custom_img_value']) ? $_POST['pwtw_custom_img_value'] : '');
                 $this->opt->load();
                 $message = $this->opt->get(self::OPT_POST_TWEET_MESSAGE);
                 $this->opt->clear();
@@ -231,8 +238,24 @@ if(!class_exists('PW_Twitter')){
                                              ),
                                        $message
                                        );
-                if(!IS_TWITTEROAUTH){
-                    $message .= "TM";
+
+                if(!IS_TWITTEROAUTH && $img != ''){
+                    $output = preg_match_all('/<img.+src=[\'"]([^\'"]+)[\'"].*>/i', $post->post_content, $matches);
+                    $first_img = $matches[1][0];
+                    if(!empty($first_img)){
+                        $img_array = explode('/wp-content/', $first_img);
+                        $img_path  = WP_CONTENT_DIR . '/' . $img_array[1];
+
+                        $ret = $this->api->request('POST',
+                                                   self::END_POINT . 'statuses/update_with_media.json',
+                                                   array('media[]' => "@{$img_path}",
+                                                         'status'  => $message,
+                                                         ),
+                                                   true,
+                                                   true
+                                                   );
+                        return;
+                    }
                 }
 
                 $ret = $this->api->request('POST',
@@ -250,7 +273,6 @@ if(!class_exists('PW_Twitter')){
          *===================================================================*/
         public function execute_admin_menu() {
             add_meta_box('pwtw_custom_box', '投稿時つぶやき追加データ', array(&$this, 'add_custom_box'), 'post', 'normal', 'high');
-            add_meta_box('pwtw_custom_box', '投稿時つぶやき追加データ', array(&$this, 'add_custom_box'), 'page', 'normal', 'high');
         }
 
         public function add_custom_box() {
@@ -278,6 +300,9 @@ if(!class_exists('PW_Twitter')){
                     $str .= "<option value=\"" . self::POST_RULE_FORCE_TWEET . "\">強制ツイート</option>";
                     $str .= "<option value=\"" . self::POST_RULE_NOT_TWEET . "\">ツイートしない</option>";
                     $str .= "</select>";
+                }else if($c['name'] == 'pwtw_custom_img'){
+                    // checkbox
+                    $str .= "<input type=\"checkbox\" name=\"$name\" value=\"1\" />";
                 }else{
                     // text
                     $str .= "<input type=\"text\" name=\"$name\" value=\"$val\" size=\"30\" />";
