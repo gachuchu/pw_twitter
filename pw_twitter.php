@@ -25,11 +25,49 @@
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *********************************************************************/
+define("IS_TWITTEROAUTH", false);
 
 require_once(WP_PLUGIN_DIR . "/libpw/libpw.php");
-require_once(dirname(__FILE__) . '/twitteroauth/twitteroauth.php');
+if(IS_TWITTEROAUTH){
+    require_once(dirname(__FILE__) . '/twitteroauth/twitteroauth.php');
+}else{
+    require_once(dirname(__FILE__) . '/tmhOAuth/tmhOAuth.php');
+}
 
 if(!class_exists('PW_Twitter')){
+    class PwOAuth {
+        private $api;
+        public function __construct($consumer_key, $consumer_secret, $access_token, $access_token_secret) {
+            if(IS_TWITTEROAUTH){
+                $this->api = new TwitterOAuth($consumer_key,
+                                              $consumer_secret,
+                                              $access_token,
+                                              $access_token_secret
+                                              );
+            }else{
+                $this->api = new tmhOAuth(array(
+                    'consumer_key' => $consumer_key,
+                    'consumer_secret' => $consumer_secret,
+                    'token' => $access_token,
+                    'secret' => $access_token_secret,
+                    ));
+            }
+        }
+
+        public function request($method, $url, $params = array(), $useauth = true, $multipart = false, $headers = array()) {
+            if(IS_TWITTEROAUTH){
+                return $this->api->oAuthRequest($url, $method, $params);
+            }else{
+                $code = $this->api->request($method, $url, $params, $useauth, $multipart, $headers);
+                if($code == 200){
+                    return $this->api->response['response'];
+                }else{
+                    return null;
+                }
+            }
+        }
+    }
+    
     /**
      *********************************************************************
      * 本体
@@ -101,11 +139,11 @@ if(!class_exists('PW_Twitter')){
                                                     );
             // api作成
             $this->opt->load();
-            $this->api = new TwitterOAuth($this->opt->get(self::OPT_CONSUMER_KEY),
-                                          $this->opt->get(self::OPT_CONSUMER_KEY_SECRET),
-                                          $this->opt->get(self::OPT_ACCESS_TOKEN),
-                                          $this->opt->get(self::OPT_ACCESS_TOKEN_SECRET)
-                                          );
+            $this->api = new PwOAuth($this->opt->get(self::OPT_CONSUMER_KEY),
+                                     $this->opt->get(self::OPT_CONSUMER_KEY_SECRET),
+                                     $this->opt->get(self::OPT_ACCESS_TOKEN),
+                                     $this->opt->get(self::OPT_ACCESS_TOKEN_SECRET)
+                                     );
             $this->opt->clear();
 
             // 管理メニュー
@@ -193,11 +231,16 @@ if(!class_exists('PW_Twitter')){
                                              ),
                                        $message
                                        );
+                if(!IS_TWITTEROAUTH){
+                    $message .= "TM";
+                }
 
-                $ret = $this->api->OAuthRequest(self::END_POINT . 'statuses/update.json',
-                                                'POST',
-                                                array('status' => $message)
-                                                );
+                $ret = $this->api->request('POST',
+                                           self::END_POINT . 'statuses/update.json',
+                                           array('status' => $message),
+                                           true,
+                                           false
+                                           );
             }
         }
 
@@ -457,10 +500,12 @@ if(!class_exists('PW_Twitter')){
                    || !file_exists(dirname(__FILE__) . $this->opt->get(self::USER_ICON_CACHE_PATH_BASE . $size))
                    ){
                     // キャッシュが無いのでアイコンを取得
-                    $ret = $this->api->OAuthRequest(self::END_POINT . 'users/show.json',
-                                                    'GET',
-                                                    array('screen_name' => $user_name)
-                                                    );
+                    $ret = $this->api->request('GET',
+                                               self::END_POINT . 'users/show.json',
+                                               array('screen_name' => $user_name),
+                                               true,
+                                               false
+                                               );
                     $ret = (array)json_decode($ret);
                     $uri = $ret['profile_image_url']; // _normal.がついているはず
                     $rep_tbl = array(
@@ -705,10 +750,12 @@ if(!class_exists('PW_Twitter')){
         static public function getTimeLine($count = 1) {
             $ref = self::getInstance(self::CLASS_NAME);
             $ref->opt->load();
-            $ret = $ref->api->OAuthRequest(self::END_POINT . 'statuses/user_timeline.json',
-                                           'GET',
-                                           array('count' => $count)
-                                           );
+            $ret = $ref->api->request('GET',
+                                      self::END_POINT . 'statuses/user_timeline.json',
+                                      array('count' => $count),
+                                      true,
+                                      false
+                                      );
             $ref->opt->clear();
             return $ret;
         }
