@@ -273,6 +273,7 @@ if(!class_exists('PW_Twitter')){
          *===================================================================*/
         public function execute_admin_menu() {
             add_meta_box('pwtw_custom_box', '投稿時つぶやき追加データ', array(&$this, 'add_custom_box'), 'post', 'normal', 'high');
+            add_meta_box('pwtw_custom_box', '投稿時つぶやき追加データ', array(&$this, 'add_custom_box'), 'page', 'normal', 'high');
         }
 
         public function add_custom_box() {
