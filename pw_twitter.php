@@ -78,8 +78,9 @@ if(!class_exists('PW_Twitter')){
         const END_POINT = 'https://api.twitter.com/1.1/';
         
         //---------------------------------------------------------------------
-        const UNIQUE_KEY = 'PW_Twitter';
-        const CLASS_NAME = 'PW_Twitter';
+        const UNIQUE_KEY  = 'PW_Twitter';
+        const CLASS_NAME  = 'PW_Twitter';
+        const ENCRYPT_KEY = '';
 
         //---------------------------------------------------------------------
         const OPT_USER_NAME                     = 'user_name';
@@ -135,7 +136,8 @@ if(!class_exists('PW_Twitter')){
                                                         self::OPT_ACCESS_TOKEN                  => '',
                                                         self::OPT_ACCESS_TOKEN_SECRET           => '',
                                                         self::OPT_POST_TWEET_MESSAGE            => 'ブログ更新しました %POST_TITLE%',
-                                                        )
+                                                        ),
+                                                    self::ENCRYPT_KEY
                                                     );
             // api作成
             $this->opt->load();
@@ -214,6 +216,7 @@ if(!class_exists('PW_Twitter')){
                 $add1 = (isset($_POST['pwtw_custom_add1_value']) ? $_POST['pwtw_custom_add1_value'] : '');
                 $add2 = (isset($_POST['pwtw_custom_add2_value']) ? $_POST['pwtw_custom_add2_value'] : '');
                 $img  = (isset($_POST['pwtw_custom_img_value']) ? $_POST['pwtw_custom_img_value'] : '');
+                $img_index = (isset($_POST['pwtw_custom_img_index_value']) ? $_POST['pwtw_custom_img_index_value'] : 1);
                 $this->opt->load();
                 $message = $this->opt->get(self::OPT_POST_TWEET_MESSAGE);
                 $this->opt->clear();
@@ -240,8 +243,9 @@ if(!class_exists('PW_Twitter')){
                                        );
 
                 if(!IS_TWITTEROAUTH && $img != ''){
+                    $img_index = $img_index - 1;
                     $output = preg_match_all('/<img.+src=[\'"]([^\'"]+)[\'"].*>/i', $post->post_content, $matches);
-                    $first_img = $matches[1][0];
+                    $first_img = $matches[1][$img_index];
                     if(!empty($first_img)){
                         $img_array = explode('/wp-content/', $first_img);
                         $img_path  = WP_CONTENT_DIR . '/' . $img_array[1];
@@ -303,6 +307,16 @@ if(!class_exists('PW_Twitter')){
                     $str .= "</select>";
                 }else if($c['name'] == 'pwtw_custom_img'){
                     // checkbox
+                    $str .= "<select name=\"pwtw_custom_img_index_value\">";
+                    for($n = 1; $n <= 32; ++$n){
+                        if($n == 1){
+                            $selectd = " selectd=\"selectd\"";
+                        }else{
+                            $selectd = "";
+                        }
+                        $str .= "<option value=\"{$n}\"{$selectd}>{$n}</option>";
+                    }
+                    $str .= "</select>枚目を使用 ";
                     $str .= "<input type=\"checkbox\" name=\"$name\" value=\"1\" />";
                 }else{
                     // text
